@@ -1,4 +1,19 @@
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+// Load the official Supabase browser library, with a fallback CDN.
+// If both networks fail, show an actionable error instead of a permanent loading screen.
+let createClient;
+try {
+  ({ createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'));
+} catch (primaryError) {
+  try {
+    ({ createClient } = await import('https://esm.sh/@supabase/supabase-js@2'));
+  } catch (secondaryError) {
+    window.__betweenUsBootFailed = true;
+    const root = document.getElementById('main');
+    if (root) root.innerHTML = '<section class="card"><h2>Unable to load the sign-in system</h2><p>Your browser could not download the Supabase library. Check your connection, disable content blockers for this site, then reload.</p><button class="btn" onclick="location.reload()">Try again</button></section>';
+    throw secondaryError;
+  }
+}
+window.__betweenUsModuleLoaded = true;
 const config=window.BETWEEN_US_CONFIG||{};
 const configured=/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(config.supabaseUrl||'') && /^(sb_publishable_|eyJ)/.test(config.supabaseKey||'');
 const sb=configured?createClient(config.supabaseUrl.replace(/\/$/,''),config.supabaseKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}):null;
@@ -72,7 +87,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)r
  if(b.id==='copyInvite')run(async()=>{await navigator.clipboard.writeText(invite);toast('Invitation code copied.')});
  if(b.id==='changePassword')run(async()=>{const {error}=await sb.auth.resetPasswordForEmail(user.email,{redirectTo:location.origin+location.pathname});if(error)throw error;toast('Check your inbox for the password reset link.')});
 });
-async function init(){if(!sb){render();return}try{const {data,error}=await sb.auth.getUser();if(error&&error.name!=='AuthSessionMissingError')throw error;user=data?.user||null;await refresh();
+async function init(){if(!sb){render();return}try{const {data,error}=await Promise.race([sb.auth.getSession(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Supabase authentication timed out. Please check your internet connection and your Supabase project status.')),12000))]);if(error)throw error;user=data?.session?.user||null;if(user){await Promise.race([refresh(),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Could not reach your family database. Check Supabase connection and try again.')),12000))])}else render();
  sb.auth.onAuthStateChange((event,session)=>{if(event==='PASSWORD_RECOVERY'){recovery=true;setTimeout(()=>passwordRecovery(),0)}else if(event==='SIGNED_OUT'){user=null;member=null;invite='';render()}else if(event==='SIGNED_IN'&&session?.user&&(!user||user.id!==session.user.id)){user=session.user;setTimeout(()=>refresh().catch(err=>toast(err.message)),0)}});
 }catch(err){main.innerHTML=`<section class="card"><h2>Connection problem</h2><p class="error">${esc(err.message)}</p><p>Check that <code>database.sql</code> has been run, the public key and URL in <code>config.js</code> are correct, and you have an internet connection.</p><button class="btn" onclick="location.reload()">Retry</button></section>`}}
 async function passwordRecovery(){const next=prompt('Enter a new password (at least 8 characters):');if(next===null)return;if(next.length<8){toast('Password must be at least 8 characters.');return}const {error}=await sb.auth.updateUser({password:next});toast(error?error.message:'Password changed successfully.');recovery=false}
