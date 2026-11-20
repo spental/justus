@@ -1,0 +1,14 @@
+{
+  "name": "Between Us — Parent & Teen",
+  "short_name": "Between Us",
+  "description": "A kinder space for parent–teen communication about ADHD.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f5fd",
+  "theme_color": "#49358a",
+  "icons": [
+    {"src":"icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
+    {"src":"icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  ]
+}
